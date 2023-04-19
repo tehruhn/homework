@@ -6,6 +6,7 @@ class Agent:
     """
     Custom Agent RL
     """
+
     def __init__(
         self,
         action_space: gym.spaces.Discrete,
