@@ -2,11 +2,15 @@
     "assignment_name": "RL",
     "contributors": [
         {
-            "name": "Change this to your name",
-            "pennkey": "MyPennKey"
+            "name": "Tarun Raheja",
+            "pennkey": "traheja"
+        }, 
+        {
+            "name": "Rohan Saraogi",
+            "pennkey": "rsaraogi"
         }
     ],
     "sources": [
-        "Don't forget to list your sources/attribution here!"
+        "ChatGPT"
     ]
 }
