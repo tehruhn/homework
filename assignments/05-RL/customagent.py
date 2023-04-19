@@ -4,7 +4,7 @@ import numpy as np
 
 class Agent:
     """
-    Custom Agent
+    Custom Agent RL
     """
     def __init__(
         self,
