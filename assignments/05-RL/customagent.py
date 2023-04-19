@@ -4,59 +4,79 @@ import numpy as np
 
 class Agent:
     """
-    Custom Agent RL
+    Custom Gym Agent
     """
 
     def __init__(
-        self,
-        action_space: gym.spaces.Discrete,
-        observation_space: gym.spaces.Box,
-        learning_rate: float = 0.1,
-        discount_factor: float = 0.99,
-        epsilon: float = 1.0,
-        epsilon_decay: float = 0.995,
-        min_epsilon: float = 0.01,
+        self, action_space: gym.spaces.Discrete, observation_space: gym.spaces.Box
     ):
         self.action_space = action_space
         self.observation_space = observation_space
 
-        # Set hyperparameters
-        self.learning_rate = learning_rate
-        self.discount_factor = discount_factor
-        self.epsilon = epsilon
-        self.epsilon_decay = epsilon_decay
-        self.min_epsilon = min_epsilon
+        self.alpha = 0.1
+        self.gamma = 0.99
+        self.epsilon = 1.0
+        self.epsilon_decay = 0.9995
+        self.min_epsilon = 0.01
 
-        # Initialize Q-table
-        self.q_table = np.zeros((observation_space.shape[0], action_space.n))
+        self.num_buckets = (20, 20, 20, 20, 20, 20, 2, 2)
+        self.q_table = np.zeros(self.num_buckets + (action_space.n,))
 
-    def act(self, observation: np.ndarray) -> int:
+    def discretize(self, observation: gym.spaces.Box) -> tuple:
+        """
+        Discretizes
+        """
+        lower_bounds = self.observation_space.low
+        upper_bounds = self.observation_space.high
+        lower_bounds[6] = -1
+        upper_bounds[6] = 1
+        lower_bounds[7] = -1
+        upper_bounds[7] = 1
+
+        ratios = [
+            (observation[i] + abs(lower_bounds[i]))
+            / (upper_bounds[i] - lower_bounds[i])
+            for i in range(len(observation))
+        ]
+        new_observation = [
+            int(round((self.num_buckets[i] - 1) * ratios[i]))
+            for i in range(len(observation))
+        ]
+        new_observation = np.array(new_observation)
+        new_observation = np.minimum(
+            self.num_buckets - 1, np.maximum(0, new_observation)
+        )
+
+        return tuple(new_observation)
+
+    def act(self, observation: gym.spaces.Box) -> gym.spaces.Discrete:
         """
         Acts
         """
-        if np.random.uniform() < self.epsilon:
-            # Choose random action
+        if np.random.random() < self.epsilon:
             return self.action_space.sample()
         else:
-            # Choose action with highest Q-value
-            return np.argmax(self.q_table[observation])
+            discretized_obs = self.discretize(observation)
+            return np.argmax(self.q_table[discretized_obs])
 
     def learn(
         self,
-        observation: np.ndarray,
-        action: int,
+        observation: gym.spaces.Box,
         reward: float,
-        next_observation: np.ndarray,
-        done: bool,
+        terminated: bool,
+        truncated: bool,
     ) -> None:
         """
         Learns
         """
-        # Update Q-value for current state-action pair
-        current_q = self.q_table[observation, action]
-        next_max_q = np.max(self.q_table[next_observation])
-        td_error = reward + self.discount_factor * next_max_q * (not done) - current_q
-        self.q_table[observation, action] += self.learning_rate * td_error
+        discretized_obs = self.discretize(observation)
+        action = self.act(observation)
+        new_value = reward + self.gamma * np.max(self.q_table[discretized_obs])
 
-        # Update epsilon
-        self.epsilon = max(self.min_epsilon, self.epsilon * self.epsilon_decay)
+        old_value = self.q_table[discretized_obs + (action,)]
+        updated_value = old_value + self.alpha * (new_value - old_value)
+        self.q_table[discretized_obs + (action,)] = updated_value
+
+        if terminated or truncated:
+            self.epsilon *= self.epsilon_decay
+            self.epsilon = max(self.epsilon, self.min_epsilon)
